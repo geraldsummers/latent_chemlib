@@ -21,6 +21,15 @@ public class LatentMachineBlockEntity extends BlockEntity {
         super(LatentChemlibMod.MACHINE_ENTITY.get(), pos, blockState);
     }
 
+    public ChemicalState storedState() {
+        return stored;
+    }
+
+    public void setStoredState(ChemicalState state) {
+        stored = state;
+        setChanged();
+    }
+
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);

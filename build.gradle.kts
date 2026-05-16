@@ -164,6 +164,15 @@ tasks.processResources {
     }
 }
 
+val syncGameTestStructures by tasks.registering(Copy::class) {
+    from(layout.projectDirectory.dir("gameteststructures"))
+    into(layout.projectDirectory.dir("run/gameteststructures"))
+}
+
+tasks.matching { it.name == "prepareRunGameTestServer" }.configureEach {
+    dependsOn(syncGameTestStructures)
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(17)
 }

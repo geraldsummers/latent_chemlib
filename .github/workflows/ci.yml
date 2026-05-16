@@ -24,5 +24,8 @@ jobs:
       - name: Test and coverage
         run: ./gradlew --no-daemon clean test jacocoTestReport jacocoTestCoverageVerification
 
+      - name: GameTests
+        run: ./gradlew --no-daemon runGameTestServer
+
       - name: Build
         run: ./gradlew --no-daemon build

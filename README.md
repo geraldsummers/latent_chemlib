@@ -47,6 +47,7 @@ Common tasks:
 ```bash
 ./gradlew test
 ./gradlew jacocoTestCoverageVerification
+./gradlew runGameTestServer
 ./gradlew build
 ./gradlew verifyAll
 ./gradlew runClient
@@ -55,8 +56,9 @@ Common tasks:
 
 The JVM unit coverage gate is intentionally focused on the pure simulation and
 configuration core. Forge event handlers and block entities are integration
-boundaries and should be covered by GameTests or pack smoke tests when those
-paths become behaviorally rich.
+boundaries. The bundled Forge GameTests cover the current in-world block entity
+surfaces: cloud state, machine block entity creation, capture, release, and
+reaction chamber agitation.
 
 GameTests are wired through ForgeGradle and can be included with:
 
