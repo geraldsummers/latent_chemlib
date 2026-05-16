@@ -3,6 +3,7 @@ package com.gerald.latentchemlib.blockentity;
 import com.gerald.latentchemlib.LatentChemlibMod;
 import com.gerald.latentchemlib.sim.ChemicalState;
 import com.gerald.latentchemlib.sim.EmergentMath;
+import com.gerald.latentchemlib.sim.SimulationBudget;
 import com.gerald.latentchemlib.sim.SimulationScheduler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -34,7 +35,7 @@ public class LatentMachineBlockEntity extends BlockEntity {
 
     public static void tick(Level level, BlockPos pos, BlockState blockState, LatentMachineBlockEntity entity) {
         if (level.isClientSide || !(level instanceof ServerLevel serverLevel) || serverLevel.getGameTime() % 20L != 0L) return;
-        if (!SimulationScheduler.INSTANCE.trySpend(serverLevel, SimulationScheduler.Budget.CLOUD_UPDATES, 1)) return;
+        if (!SimulationScheduler.INSTANCE.trySpend(serverLevel, SimulationBudget.CLOUD_UPDATES, 1)) return;
         Block block = blockState.getBlock();
         if (block == LatentChemlibMod.GAS_CAPTURE.get()) {
             entity.capture(serverLevel);

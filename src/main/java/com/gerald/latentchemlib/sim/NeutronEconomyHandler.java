@@ -22,10 +22,10 @@ public class NeutronEconomyHandler {
         ServerLevel level = (ServerLevel) player.level();
         double flux = 0.0;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationScheduler.Budget.NUCLEAR_INVENTORY_SCANS, 1)) break;
+            if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NUCLEAR_INVENTORY_SCANS, 1)) break;
             flux += flux(player.getInventory().getItem(i));
         }
-        if (flux > 1.0 && SimulationScheduler.INSTANCE.trySpend(level, SimulationScheduler.Budget.HEAT_RADIATION_EMISSIONS, 1)) {
+        if (flux > 1.0 && SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.HEAT_RADIATION_EMISSIONS, 1)) {
             NuclearUtil.createRadiation((int) Math.min(24.0, Math.max(1.0, flux / 80.0)), level, player.blockPosition());
         }
     }

@@ -32,7 +32,7 @@ public class GasEscapeHandler {
         Player player = event.player;
         ServerLevel level = (ServerLevel) player.level();
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationScheduler.Budget.ESCAPE_SCANS, 1)) return;
+            if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.ESCAPE_SCANS, 1)) return;
             ItemStack stack = player.getInventory().getItem(i);
             if (tryEscapeItem(stack, level, player.blockPosition())) player.getInventory().setChanged();
         }

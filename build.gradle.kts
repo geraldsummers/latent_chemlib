@@ -186,8 +186,14 @@ tasks.jacocoTestReport {
     classDirectories.setFrom(
         files(
             sourceSets.main.get().output.asFileTree.matching {
-                include("com/gerald/latentchemlib/sim/**")
-                include("com/gerald/latentchemlib/data/**")
+                include("com/gerald/latentchemlib/data/ChemicalTraits.class")
+                include("com/gerald/latentchemlib/data/NumericCurve.class")
+                include("com/gerald/latentchemlib/data/PresetCurve.class")
+                include("com/gerald/latentchemlib/data/SchedulerProfile.class")
+                include("com/gerald/latentchemlib/sim/ChemicalState.class")
+                include("com/gerald/latentchemlib/sim/EmergentMath.class")
+                include("com/gerald/latentchemlib/sim/SimulationBudget.class")
+                include("com/gerald/latentchemlib/sim/SimulationBudgetLedger.class")
             }
         )
     )
@@ -206,12 +212,12 @@ tasks.jacocoTestCoverageVerification {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                minimum = "0.90".toBigDecimal()
+                minimum = "0.95".toBigDecimal()
             }
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                minimum = "0.60".toBigDecimal()
+                minimum = "0.85".toBigDecimal()
             }
         }
     }

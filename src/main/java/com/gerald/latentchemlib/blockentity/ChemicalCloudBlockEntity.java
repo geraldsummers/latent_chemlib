@@ -5,6 +5,7 @@ import com.gerald.latentchemlib.data.ChemicalTraits;
 import com.gerald.latentchemlib.data.LatentDataManager;
 import com.gerald.latentchemlib.sim.ChemicalState;
 import com.gerald.latentchemlib.sim.EmergentMath;
+import com.gerald.latentchemlib.sim.SimulationBudget;
 import com.gerald.latentchemlib.sim.SimulationScheduler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -61,7 +62,7 @@ public class ChemicalCloudBlockEntity extends BlockEntity {
         if (level.isClientSide || !(level instanceof ServerLevel serverLevel)) return;
         int cadence = EmergentMath.updateCadence(entity.state);
         if (cadence <= 0 || serverLevel.getGameTime() % cadence != 0L) return;
-        if (!SimulationScheduler.INSTANCE.trySpend(serverLevel, SimulationScheduler.Budget.CLOUD_UPDATES, 1)) return;
+        if (!SimulationScheduler.INSTANCE.trySpend(serverLevel, SimulationBudget.CLOUD_UPDATES, 1)) return;
 
         ChemicalTraits traits = LatentDataManager.INSTANCE.traits(entity.state.chemicalId());
         entity.diffuse(serverLevel, traits);
@@ -79,7 +80,7 @@ public class ChemicalCloudBlockEntity extends BlockEntity {
         double movable = EmergentMath.diffusionMass(state, traits);
         if (movable <= 0.0) return;
         for (Direction direction : Direction.values()) {
-            if (movable <= 0.0 || !SimulationScheduler.INSTANCE.trySpend(level, SimulationScheduler.Budget.NEIGHBOR_OPS, 1)) return;
+            if (movable <= 0.0 || !SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NEIGHBOR_OPS, 1)) return;
             BlockPos target = worldPosition.relative(direction);
             if (!level.isInWorldBounds(target)) continue;
             BlockState targetState = level.getBlockState(target);
@@ -103,7 +104,7 @@ public class ChemicalCloudBlockEntity extends BlockEntity {
         double flux = EmergentMath.heatFlux(state, traits);
         if (flux <= 0.0) return;
         for (Direction direction : Direction.values()) {
-            if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationScheduler.Budget.NEIGHBOR_OPS, 1)) return;
+            if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NEIGHBOR_OPS, 1)) return;
             BlockPos target = worldPosition.relative(direction);
             BlockState targetState = level.getBlockState(target);
             if (targetState.isAir() || targetState.is(Blocks.BEDROCK)) continue;
