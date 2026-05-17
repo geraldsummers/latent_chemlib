@@ -5,6 +5,7 @@ import com.gerald.latentchemlib.blockentity.ChemicalCloudBlockEntity;
 import com.gerald.latentchemlib.data.ChemicalTraits;
 import com.gerald.latentchemlib.data.LatentDataManager;
 import com.smashingmods.chemlib.api.Chemical;
+import com.smashingmods.chemlib.api.MatterState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -39,7 +40,7 @@ public class GasEscapeHandler {
     }
 
     private boolean tryEscapeItem(ItemStack stack, ServerLevel level, BlockPos origin) {
-        if (stack.isEmpty() || !(stack.getItem() instanceof Chemical)) return false;
+        if (stack.isEmpty() || !(stack.getItem() instanceof Chemical chemical) || !canEscapeAsGas(chemical)) return false;
         ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
         if (id == null) return false;
         String chemicalId = id.toString();
@@ -56,6 +57,10 @@ public class GasEscapeHandler {
         spawnCloud(level, origin, state);
         stack.setCount(0);
         return true;
+    }
+
+    public static boolean canEscapeAsGas(Chemical chemical) {
+        return chemical != null && chemical.getMatterState() == MatterState.GAS;
     }
 
     public static boolean spawnCloud(ServerLevel level, BlockPos origin, ChemicalState state) {

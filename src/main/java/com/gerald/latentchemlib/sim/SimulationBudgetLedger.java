@@ -37,9 +37,12 @@ public class SimulationBudgetLedger<K> {
             case CLOUD_UPDATES -> profile.cloudUpdatesPerSecond();
             case NEIGHBOR_OPS -> profile.neighborOpsPerSecond();
             case ESCAPE_SCANS -> profile.escapeScansPerSecond();
-            case NUCLEAR_INVENTORY_SCANS -> profile.nuclearInventoryScansPerSecond();
-            case STACK_MUTATIONS -> profile.stackMutationsPerSecond();
-            case HEAT_RADIATION_EMISSIONS -> profile.heatRadiationEmissionsPerSecond();
+            case NUCLEAR_SURFACE_SCANS -> profile.nuclearSurfaceScansPerSecond();
+            case NUCLEAR_STACK_EVALUATIONS -> profile.nuclearStackEvaluationsPerSecond();
+            case NUCLEAR_STATE_EVALUATIONS -> profile.nuclearStateEvaluationsPerSecond();
+            case NUCLEAR_MUTATIONS -> profile.nuclearMutationsPerSecond();
+            case NUCLEAR_RADIATION_EMISSIONS -> profile.nuclearRadiationEmissionsPerSecond();
+            case NUCLEAR_HEAT_EMISSIONS -> profile.nuclearHeatEmissionsPerSecond();
         };
     }
 }

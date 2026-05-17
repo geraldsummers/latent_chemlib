@@ -5,8 +5,9 @@ import com.gerald.latentchemlib.block.LatentMachineBlock;
 import com.gerald.latentchemlib.blockentity.ChemicalCloudBlockEntity;
 import com.gerald.latentchemlib.blockentity.LatentMachineBlockEntity;
 import com.gerald.latentchemlib.data.LatentDataManager;
+import com.gerald.latentchemlib.item.ChemicalCellItem;
 import com.gerald.latentchemlib.sim.GasEscapeHandler;
-import com.gerald.latentchemlib.sim.NeutronEconomyHandler;
+import com.gerald.latentchemlib.sim.NuclearSurfaceScanner;
 import com.gerald.latentchemlib.sim.SimulationScheduler;
 import com.mojang.logging.LogUtils;
 import net.minecraft.world.item.BlockItem;
@@ -50,6 +51,8 @@ public class LatentChemlibMod {
     public static final RegistryObject<Block> GAS_TANK = machine("gas_tank");
     public static final RegistryObject<Block> GAS_REACTION_CHAMBER = machine("gas_reaction_chamber");
     public static final RegistryObject<Block> GAS_RELEASE = machine("gas_release");
+    public static final RegistryObject<Item> SEALED_CHEMICAL_CELL =
+        ITEMS.register("sealed_chemical_cell", () -> new ChemicalCellItem(new Item.Properties()));
 
     public static final RegistryObject<BlockEntityType<ChemicalCloudBlockEntity>> CHEMICAL_CLOUD_ENTITY =
         BLOCK_ENTITIES.register("chemical_cloud", () ->
@@ -73,7 +76,7 @@ public class LatentChemlibMod {
         MinecraftForge.EVENT_BUS.addListener(this::addReloadListeners);
         MinecraftForge.EVENT_BUS.register(SimulationScheduler.INSTANCE);
         MinecraftForge.EVENT_BUS.register(GasEscapeHandler.INSTANCE);
-        MinecraftForge.EVENT_BUS.register(NeutronEconomyHandler.INSTANCE);
+        MinecraftForge.EVENT_BUS.register(NuclearSurfaceScanner.INSTANCE);
         LOGGER.info("Loaded {}", MOD_ID);
     }
 

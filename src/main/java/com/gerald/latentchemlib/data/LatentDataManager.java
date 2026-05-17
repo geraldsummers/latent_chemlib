@@ -2,6 +2,7 @@ package com.gerald.latentchemlib.data;
 
 import com.gerald.latentchemlib.LatentChemlibMod;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.smashingmods.chemlib.api.Chemical;
@@ -14,6 +15,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -24,6 +26,8 @@ public class LatentDataManager implements PreparableReloadListener {
 
     private volatile Map<String, ChemicalTraits> traits = Map.of();
     private volatile SchedulerProfile schedulerProfile = SchedulerProfile.defaults();
+    private volatile List<ReactionRule> reactionRules = List.of();
+    private volatile List<NuclearDecayRule> nuclearDecayRules = List.of();
 
     public ChemicalTraits traits(String chemicalId) {
         ChemicalTraits configured = traits.get(chemicalId);
@@ -34,6 +38,14 @@ public class LatentDataManager implements PreparableReloadListener {
         return schedulerProfile;
     }
 
+    public List<ReactionRule> reactionRules() {
+        return reactionRules;
+    }
+
+    public List<NuclearDecayRule> nuclearDecayRules() {
+        return nuclearDecayRules;
+    }
+
     @Override
     public CompletableFuture<Void> reload(PreparationBarrier barrier, ResourceManager resourceManager, ProfilerFiller prepProfiler, ProfilerFiller reloadProfiler, Executor backgroundExecutor, Executor gameExecutor) {
         return CompletableFuture.supplyAsync(() -> load(resourceManager), backgroundExecutor)
@@ -41,12 +53,21 @@ public class LatentDataManager implements PreparableReloadListener {
             .thenAcceptAsync(snapshot -> {
                 traits = snapshot.traits();
                 schedulerProfile = snapshot.schedulerProfile();
-                LatentChemlibMod.LOGGER.info("Loaded {} latent chemical trait overrides", traits.size());
+                reactionRules = snapshot.reactionRules();
+                nuclearDecayRules = snapshot.nuclearDecayRules();
+                LatentChemlibMod.LOGGER.info(
+                    "Loaded {} latent chemical trait overrides, {} reaction rules, and {} nuclear decay rules",
+                    traits.size(),
+                    reactionRules.size(),
+                    nuclearDecayRules.size()
+                );
             }, gameExecutor);
     }
 
     private Snapshot load(ResourceManager resourceManager) {
         Map<String, ChemicalTraits> loadedTraits = new HashMap<>();
+        java.util.ArrayList<ReactionRule> loadedRules = new java.util.ArrayList<>();
+        java.util.ArrayList<NuclearDecayRule> loadedDecayRules = new java.util.ArrayList<>();
         resourceManager.listResources("chemical_traits", id -> id.getPath().endsWith(".json")).forEach((id, resource) -> {
             try (var reader = resource.openAsReader()) {
                 JsonObject json = GSON.fromJson(reader, JsonObject.class);
@@ -65,15 +86,42 @@ public class LatentDataManager implements PreparableReloadListener {
                     integer(json, "cloud_updates_per_second", profile.cloudUpdatesPerSecond()),
                     integer(json, "neighbor_ops_per_second", profile.neighborOpsPerSecond()),
                     integer(json, "escape_scans_per_second", profile.escapeScansPerSecond()),
-                    integer(json, "nuclear_inventory_scans_per_second", profile.nuclearInventoryScansPerSecond()),
-                    integer(json, "stack_mutations_per_second", profile.stackMutationsPerSecond()),
-                    integer(json, "heat_radiation_emissions_per_second", profile.heatRadiationEmissionsPerSecond())
+                    integer(json, "nuclear_surface_scans_per_second", integer(json, "nuclear_inventory_scans_per_second", profile.nuclearSurfaceScansPerSecond())),
+                    integer(json, "nuclear_stack_evaluations_per_second", profile.nuclearStackEvaluationsPerSecond()),
+                    integer(json, "nuclear_state_evaluations_per_second", profile.nuclearStateEvaluationsPerSecond()),
+                    integer(json, "nuclear_mutations_per_second", integer(json, "stack_mutations_per_second", profile.nuclearMutationsPerSecond())),
+                    integer(json, "nuclear_radiation_emissions_per_second", integer(json, "heat_radiation_emissions_per_second", profile.nuclearRadiationEmissionsPerSecond())),
+                    integer(json, "nuclear_heat_emissions_per_second", integer(json, "heat_radiation_emissions_per_second", profile.nuclearHeatEmissionsPerSecond()))
                 );
             } catch (Exception ex) {
                 LatentChemlibMod.LOGGER.warn("Ignoring invalid latent scheduler profile {}", entry.getKey(), ex);
             }
         }
-        return new Snapshot(Map.copyOf(loadedTraits), profile);
+        resourceManager.listResources("reaction_rules", id -> id.getPath().endsWith(".json")).forEach((id, resource) -> {
+            try (var reader = resource.openAsReader()) {
+                JsonElement root = GSON.fromJson(reader, JsonElement.class);
+                JsonArray rules = root.isJsonArray() ? root.getAsJsonArray() : root.getAsJsonObject().getAsJsonArray("rules");
+                if (rules == null) return;
+                for (JsonElement element : rules) {
+                    if (element != null && element.isJsonObject()) loadedRules.add(ruleFromJson(element.getAsJsonObject(), id.toString()));
+                }
+            } catch (Exception ex) {
+                LatentChemlibMod.LOGGER.warn("Ignoring invalid latent reaction rule file {}", id, ex);
+            }
+        });
+        resourceManager.listResources("nuclear_decay", id -> id.getPath().endsWith(".json")).forEach((id, resource) -> {
+            try (var reader = resource.openAsReader()) {
+                JsonElement root = GSON.fromJson(reader, JsonElement.class);
+                JsonArray rules = root.isJsonArray() ? root.getAsJsonArray() : root.getAsJsonObject().getAsJsonArray("rules");
+                if (rules == null) return;
+                for (JsonElement element : rules) {
+                    if (element != null && element.isJsonObject()) loadedDecayRules.add(decayRuleFromJson(element.getAsJsonObject(), id.toString()));
+                }
+            } catch (Exception ex) {
+                LatentChemlibMod.LOGGER.warn("Ignoring invalid latent nuclear decay file {}", id, ex);
+            }
+        });
+        return new Snapshot(Map.copyOf(loadedTraits), profile, List.copyOf(loadedRules), List.copyOf(loadedDecayRules));
     }
 
     private ChemicalTraits traitsFromJson(JsonObject json, ChemicalTraits fallback) {
@@ -143,5 +191,45 @@ public class LatentDataManager implements PreparableReloadListener {
         return value == null ? fallback : value.getAsInt();
     }
 
-    private record Snapshot(Map<String, ChemicalTraits> traits, SchedulerProfile schedulerProfile) {}
+    private static ReactionRule ruleFromJson(JsonObject json, String fallbackId) {
+        return new ReactionRule(
+            text(json, "id", fallbackId),
+            text(json, "input_chemical", "minecraft:air"),
+            text(json, "output_chemical", ""),
+            text(json, "output_item", ""),
+            number(json, "min_mass", 1.0),
+            number(json, "min_temperature", 293.0),
+            number(json, "min_charge", 0.0),
+            number(json, "min_energy", 0.0),
+            number(json, "output_mass_ratio", 1.0),
+            number(json, "temperature_delta", 0.0),
+            number(json, "charge_delta", 0.0),
+            number(json, "energy_delta", 0.0),
+            (float) number(json, "heat_cost", 0.0),
+            (float) number(json, "heat_emission", 0.0)
+        );
+    }
+
+    private static NuclearDecayRule decayRuleFromJson(JsonObject json, String fallbackId) {
+        return new NuclearDecayRule(
+            text(json, "id", fallbackId),
+            text(json, "input_chemical", "minecraft:air"),
+            text(json, "output_chemical", ""),
+            text(json, "output_item", ""),
+            text(json, "isotope", ""),
+            number(json, "half_life_seconds", 0.0),
+            number(json, "output_mass_ratio", 1.0),
+            number(json, "temperature_delta", 0.0),
+            number(json, "charge_delta", 0.0),
+            number(json, "energy_delta", 0.0),
+            (float) number(json, "heat_emission", 0.0)
+        );
+    }
+
+    private record Snapshot(
+        Map<String, ChemicalTraits> traits,
+        SchedulerProfile schedulerProfile,
+        List<ReactionRule> reactionRules,
+        List<NuclearDecayRule> nuclearDecayRules
+    ) {}
 }

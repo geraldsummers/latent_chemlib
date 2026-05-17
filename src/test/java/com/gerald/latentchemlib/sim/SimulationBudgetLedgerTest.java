@@ -8,16 +8,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SimulationBudgetLedgerTest {
-    private final SchedulerProfile profile = new SchedulerProfile(2, 3, 4, 5, 6, 7);
+    private final SchedulerProfile profile = new SchedulerProfile(2, 3, 4, 5, 6, 7, 8, 9, 10);
 
     @Test
     void limitsMapEveryBudgetToTheConfiguredProfile() {
         assertEquals(2, SimulationBudgetLedger.limit(SimulationBudget.CLOUD_UPDATES, profile));
         assertEquals(3, SimulationBudgetLedger.limit(SimulationBudget.NEIGHBOR_OPS, profile));
         assertEquals(4, SimulationBudgetLedger.limit(SimulationBudget.ESCAPE_SCANS, profile));
-        assertEquals(5, SimulationBudgetLedger.limit(SimulationBudget.NUCLEAR_INVENTORY_SCANS, profile));
-        assertEquals(6, SimulationBudgetLedger.limit(SimulationBudget.STACK_MUTATIONS, profile));
-        assertEquals(7, SimulationBudgetLedger.limit(SimulationBudget.HEAT_RADIATION_EMISSIONS, profile));
+        assertEquals(5, SimulationBudgetLedger.limit(SimulationBudget.NUCLEAR_SURFACE_SCANS, profile));
+        assertEquals(6, SimulationBudgetLedger.limit(SimulationBudget.NUCLEAR_STACK_EVALUATIONS, profile));
+        assertEquals(7, SimulationBudgetLedger.limit(SimulationBudget.NUCLEAR_STATE_EVALUATIONS, profile));
+        assertEquals(8, SimulationBudgetLedger.limit(SimulationBudget.NUCLEAR_MUTATIONS, profile));
+        assertEquals(9, SimulationBudgetLedger.limit(SimulationBudget.NUCLEAR_RADIATION_EMISSIONS, profile));
+        assertEquals(10, SimulationBudgetLedger.limit(SimulationBudget.NUCLEAR_HEAT_EMISSIONS, profile));
     }
 
     @Test
@@ -60,8 +63,11 @@ class SimulationBudgetLedgerTest {
         assertEquals(256, defaults.cloudUpdatesPerSecond());
         assertEquals(768, defaults.neighborOpsPerSecond());
         assertEquals(64, defaults.escapeScansPerSecond());
-        assertEquals(96, defaults.nuclearInventoryScansPerSecond());
-        assertEquals(32, defaults.stackMutationsPerSecond());
-        assertEquals(64, defaults.heatRadiationEmissionsPerSecond());
+        assertEquals(512, defaults.nuclearSurfaceScansPerSecond());
+        assertEquals(512, defaults.nuclearStackEvaluationsPerSecond());
+        assertEquals(128, defaults.nuclearStateEvaluationsPerSecond());
+        assertEquals(64, defaults.nuclearMutationsPerSecond());
+        assertEquals(64, defaults.nuclearRadiationEmissionsPerSecond());
+        assertEquals(64, defaults.nuclearHeatEmissionsPerSecond());
     }
 }

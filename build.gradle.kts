@@ -196,6 +196,7 @@ tasks.jacocoTestReport {
         files(
             sourceSets.main.get().output.asFileTree.matching {
                 include("com/gerald/latentchemlib/data/ChemicalTraits.class")
+                include("com/gerald/latentchemlib/data/NuclearDecayRule.class")
                 include("com/gerald/latentchemlib/data/NumericCurve.class")
                 include("com/gerald/latentchemlib/data/PresetCurve.class")
                 include("com/gerald/latentchemlib/data/SchedulerProfile.class")

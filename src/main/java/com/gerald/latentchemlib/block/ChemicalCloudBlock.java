@@ -2,6 +2,8 @@ package com.gerald.latentchemlib.block;
 
 import com.gerald.latentchemlib.LatentChemlibMod;
 import com.gerald.latentchemlib.blockentity.ChemicalCloudBlockEntity;
+import com.gerald.latentchemlib.sim.ChemicalCloudVisuals;
+import com.gerald.latentchemlib.sim.ChemicalState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -11,10 +13,19 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 
 public class ChemicalCloudBlock extends BaseEntityBlock {
+    public static final IntegerProperty DIFFUSION = IntegerProperty.create("diffusion", 0, 3);
+
     public ChemicalCloudBlock(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(DIFFUSION, 3));
+    }
+
+    public static int diffusionTier(ChemicalState state) {
+        return ChemicalCloudVisuals.diffusionTier(state);
     }
 
     public static int lightLevel(BlockState state) {
@@ -39,6 +50,11 @@ public class ChemicalCloudBlock extends BaseEntityBlock {
     @Override
     public float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
         return 1.0f;
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+        builder.add(DIFFUSION);
     }
 
     @Override

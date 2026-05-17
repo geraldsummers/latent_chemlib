@@ -1,5 +1,4 @@
 package com.gerald.latentchemlib.sim;
-
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 
@@ -75,5 +74,13 @@ class ChemicalStateTest {
         ChemicalState state = new ChemicalState("chemlib:argon", 10.0, 1.0, 300.0, 0.0, 20.0);
         assertEquals(0.0, state.withEnergy(-200.0).energy());
         assertEquals(75.0, state.withEnergy(75.0).energy());
+    }
+
+    @Test
+    void cloudDiffusionTierBecomesMoreTransparentAsDensityFalls() {
+        assertEquals(0, ChemicalCloudVisuals.diffusionTier(new ChemicalState("chemlib:chlorine", 100.0, 3.0, 293.0, 0.0, 0.0)));
+        assertEquals(1, ChemicalCloudVisuals.diffusionTier(new ChemicalState("chemlib:chlorine", 100.0, 2.0, 293.0, 0.0, 0.0)));
+        assertEquals(2, ChemicalCloudVisuals.diffusionTier(new ChemicalState("chemlib:chlorine", 100.0, 0.5, 293.0, 0.0, 0.0)));
+        assertEquals(3, ChemicalCloudVisuals.diffusionTier(new ChemicalState("chemlib:chlorine", 100.0, 0.1, 293.0, 0.0, 0.0)));
     }
 }
