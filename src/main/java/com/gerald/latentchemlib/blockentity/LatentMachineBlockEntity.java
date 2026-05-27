@@ -9,6 +9,9 @@ import com.gerald.latentchemlib.sim.EmergentMath;
 import com.gerald.latentchemlib.sim.NuclearSimulationService;
 import com.gerald.latentchemlib.sim.SimulationBudget;
 import com.gerald.latentchemlib.sim.SimulationScheduler;
+import com.gerald.heatsync.api.HeatBlockEntity;
+import com.gerald.heatsync.api.HeatCapabilities;
+import com.gerald.heatsync.api.IHeatStorage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -22,11 +25,16 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import org.antarcticgardens.cna.content.heat.HeatBlockEntity;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.util.LazyOptional;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class LatentMachineBlockEntity extends BlockEntity implements HeatBlockEntity {
+    private static final float MAX_HEAT = 4_000.0f;
     private ChemicalState stored = ChemicalState.empty();
     private float heat;
+    private LazyOptional<IHeatStorage> heatCapability = LazyOptional.of(() -> this);
 
     public LatentMachineBlockEntity(BlockPos pos, BlockState blockState) {
         super(LatentChemlibMod.MACHINE_ENTITY.get(), pos, blockState);
@@ -53,6 +61,26 @@ public class LatentMachineBlockEntity extends BlockEntity implements HeatBlockEn
         super.saveAdditional(tag);
         tag.put("stored", stored.save());
         tag.putFloat("heat", heat);
+    }
+
+    @Override
+    public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
+        if (!remove && cap == HeatCapabilities.INSTANCE.getHEAT()) {
+            return heatCapability.cast();
+        }
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        heatCapability.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        heatCapability = LazyOptional.of(() -> this);
     }
 
     public static void tick(Level level, BlockPos pos, BlockState blockState, LatentMachineBlockEntity entity) {
@@ -157,12 +185,63 @@ public class LatentMachineBlockEntity extends BlockEntity implements HeatBlockEn
     }
 
     @Override
+    public float getMaxHeat() {
+        return MAX_HEAT;
+    }
+
+    @Override
+    public float getThermalCapacity() {
+        return MAX_HEAT;
+    }
+
+    @Override
+    public float getThermalResistance() {
+        return 1.0f;
+    }
+
+    @Override
+    public boolean canConnect(Direction side) {
+        return true;
+    }
+
+    @Override
+    public boolean canAdd(Direction side) {
+        return true;
+    }
+
+    @Override
+    public boolean canExtract(Direction side) {
+        return true;
+    }
+
+    @Override
+    public float addHeat(float amount, boolean simulate) {
+        if (amount <= 0.0f) return 0.0f;
+        float accepted = Math.min(amount, Math.max(0.0f, MAX_HEAT - heat));
+        if (!simulate && accepted > 0.0f) addHeat(accepted);
+        return accepted;
+    }
+
+    @Override
+    public float extractHeat(float amount, boolean simulate) {
+        if (amount <= 0.0f) return 0.0f;
+        float extracted = Math.min(amount, Math.max(0.0f, heat));
+        if (!simulate && extracted > 0.0f) setHeat(heat - extracted);
+        return extracted;
+    }
+
+    @Override
     public void addHeat(float heat) {
-        this.heat = Math.max(0.0f, this.heat + heat);
+        this.heat = Math.min(MAX_HEAT, Math.max(0.0f, this.heat + heat));
     }
 
     @Override
     public void setHeat(float heat) {
-        this.heat = Math.max(0.0f, heat);
+        this.heat = Math.min(MAX_HEAT, Math.max(0.0f, heat));
+    }
+
+    @Override
+    public float maxHeat() {
+        return MAX_HEAT;
     }
 }

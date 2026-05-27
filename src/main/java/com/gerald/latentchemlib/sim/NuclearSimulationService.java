@@ -5,6 +5,8 @@ import com.gerald.latentchemlib.data.ChemicalTraits;
 import com.gerald.latentchemlib.data.LatentDataManager;
 import com.gerald.latentchemlib.data.NuclearDecayRule;
 import com.gerald.latentchemlib.item.ChemicalCellItem;
+import com.gerald.heatsync.api.HeatBlockEntity;
+import com.gerald.heatsync.api.HeatCapabilities;
 import com.smashingmods.chemlib.api.Element;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -18,8 +20,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.registries.ForgeRegistries;
-import org.antarcticgardens.cna.content.heat.HeatBlockEntity;
-import org.antarcticgardens.cna.content.nuclear.NuclearUtil;
 
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -275,7 +275,7 @@ public class NuclearSimulationService {
             heatSink.addHeat(heatEmission);
         }
         if (pos != null && radiationLevel > 0 && SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NUCLEAR_RADIATION_EMISSIONS, 1)) {
-            NuclearUtil.createRadiation(radiationLevel, level, pos);
+            LatentRadiationService.emit(level, pos, radiationLevel);
         }
     }
 
@@ -322,6 +322,9 @@ public class NuclearSimulationService {
     }
 
     public static HeatBlockEntity heatSink(BlockEntity entity) {
-        return entity instanceof HeatBlockEntity heatBlockEntity ? heatBlockEntity : null;
+        if (entity instanceof HeatBlockEntity heatBlockEntity) return heatBlockEntity;
+        return entity.getCapability(HeatCapabilities.INSTANCE.getHEAT())
+            .map(storage -> storage instanceof HeatBlockEntity heatBlockEntity ? heatBlockEntity : null)
+            .orElse(null);
     }
 }

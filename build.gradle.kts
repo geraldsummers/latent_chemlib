@@ -19,12 +19,7 @@ val flywheelVersion = property("flywheel_version") as String
 val registrateVersion = property("registrate_version") as String
 val chemlibVersion = property("chemlib_version") as String
 val chemlibCurseFileId = property("chemlib_curse_file_id") as String
-val alchemylibVersion = property("alchemylib_version") as String
-val alchemylibCurseFileId = property("alchemylib_curse_file_id") as String
-val alchemistryVersion = property("alchemistry_version") as String
-val alchemistryCurseFileId = property("alchemistry_curse_file_id") as String
-val createNewAgeVersion = property("create_new_age_version") as String
-val createNewAgeCurseFileId = property("create_new_age_curse_file_id") as String
+val heatSyncVersion = property("heatsync_version") as String
 val emiVersion = property("emi_version") as String
 val emiCurseFileId = property("emi_curse_file_id") as String
 val jeiVersion = property("jei_version") as String
@@ -43,7 +38,7 @@ base {
     archivesName.set(modId)
 }
 
-fun deobf(notation: String): Any =
+fun deobf(notation: Any): Any =
     requireNotNull(extensions.getByName("fg").withGroovyBuilder { "deobf"(notation) })
 
 java {
@@ -110,6 +105,9 @@ repositories {
         }
     }
     maven("https://maven.blamejared.com")
+    flatDir {
+        dirs("../heat-sync/build/libs")
+    }
 }
 
 dependencies {
@@ -119,14 +117,14 @@ dependencies {
 
     implementation(deobf("com.simibubi.create:create-$minecraftVersion:$createMavenVersion:slim"))
     implementation(deobf("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion"))
+    implementation(deobf("io.github.llamalad7:mixinextras-forge:0.3.6"))
     compileOnly(deobf("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion"))
     runtimeOnly(deobf("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion"))
     implementation(deobf("com.tterrag.registrate:Registrate:$registrateVersion"))
 
     implementation(deobf("curse.maven:chemlib-340666:$chemlibCurseFileId"))
-    implementation(deobf("curse.maven:alchemylib-293426:$alchemylibCurseFileId"))
-    implementation(deobf("curse.maven:alchemistry-293425:$alchemistryCurseFileId"))
-    implementation(deobf("curse.maven:create-new-age-905861:$createNewAgeCurseFileId"))
+    compileOnly(deobf("com.gerald:heatsync:$heatSyncVersion"))
+    runtimeOnly(deobf("com.gerald:heatsync:$heatSyncVersion"))
     compileOnly(deobf("curse.maven:emi-580555:$emiCurseFileId"))
     runtimeOnly(deobf("curse.maven:emi-580555:$emiCurseFileId"))
     compileOnly(deobf("mezz.jei:jei-$minecraftVersion-common-api:$jeiVersion"))
@@ -143,10 +141,8 @@ tasks.processResources {
         "forgeVersion" to forgeVersion,
         "kotlinForForgeVersion" to kotlinForForgeVersion,
         "createReleaseVersion" to createReleaseVersion,
-        "createNewAgeVersion" to createNewAgeVersion,
+        "heatSyncVersion" to heatSyncVersion,
         "chemlibVersion" to chemlibVersion,
-        "alchemylibVersion" to alchemylibVersion,
-        "alchemistryVersion" to alchemistryVersion,
         "emiVersion" to emiVersion,
         "jeiVersion" to jeiVersion,
         "modId" to modId,
@@ -242,4 +238,8 @@ tasks.register("verifyAll") {
     if ((findProperty("withGameTests") as String?)?.toBoolean() == true) {
         dependsOn("runGameTestServer")
     }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }

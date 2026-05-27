@@ -41,9 +41,9 @@ ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${modId}]]
-modId="create_new_age"
+modId="heatsync"
 mandatory=true
-versionRange="[${createNewAgeVersion},)"
+versionRange="[${heatSyncVersion},)"
 ordering="AFTER"
 side="BOTH"
 
@@ -51,20 +51,6 @@ side="BOTH"
 modId="chemlib"
 mandatory=true
 versionRange="[${chemlibVersion},)"
-ordering="AFTER"
-side="BOTH"
-
-[[dependencies.${modId}]]
-modId="alchemylib"
-mandatory=true
-versionRange="[${alchemylibVersion},)"
-ordering="AFTER"
-side="BOTH"
-
-[[dependencies.${modId}]]
-modId="alchemistry"
-mandatory=true
-versionRange="[${alchemistryVersion},)"
 ordering="AFTER"
 side="BOTH"
 
