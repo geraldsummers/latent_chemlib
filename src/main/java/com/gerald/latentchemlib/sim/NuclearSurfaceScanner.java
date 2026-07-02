@@ -23,6 +23,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -63,22 +64,13 @@ public class NuclearSurfaceScanner {
 
     private void scanPlayerInventory(ServerLevel level, ServerPlayer player) {
         Inventory inventory = player.getInventory();
+        NuclearSimulationService.NuclearEnvironment baseEnvironment = NuclearSimulationService.environment(level, player.blockPosition());
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (!NuclearSimulationService.INSTANCE.isNuclearRelevant(stack)) continue;
+            NuclearSimulationService.NuclearEnvironment environment = inventoryEnvironment(inventory, slot, baseEnvironment);
+            if (!NuclearSimulationService.INSTANCE.canProcessStack(stack, environment)) continue;
             if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NUCLEAR_SURFACE_SCANS, 1)) return;
-            NuclearSimulationService.ProcessStatus status = NuclearSimulationService.INSTANCE.processStack(
-                level,
-                player.blockPosition(),
-                stack,
-                PLAYER_PERIOD_TICKS / 20.0,
-                null,
-                output -> {
-                    if (!inventory.add(output)) player.drop(output, false);
-                }
-            );
-            inventory.setItem(slot, stack);
-            inventory.setChanged();
+            NuclearSimulationService.ProcessStatus status = processPlayerStack(level, player, inventory, slot, stack, environment);
             if (status == NuclearSimulationService.ProcessStatus.BUDGET_EXHAUSTED) return;
         }
     }
@@ -154,22 +146,15 @@ public class NuclearSurfaceScanner {
         if (optional.isEmpty() || !(optional.get() instanceof IItemHandlerModifiable handler)) return true;
         if (!hasRelevantStack(handler)) return true;
         if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NUCLEAR_SURFACE_SCANS, 1)) return false;
+        NuclearSimulationService.NuclearEnvironment baseEnvironment = NuclearSimulationService.environment(level, blockEntity.getBlockPos());
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack current = handler.getStackInSlot(slot);
-            if (!NuclearSimulationService.INSTANCE.isNuclearRelevant(current)) continue;
+            NuclearSimulationService.NuclearEnvironment environment = inventoryEnvironment(handler, slot, baseEnvironment);
+            if (!NuclearSimulationService.INSTANCE.canProcessStack(current, environment)) continue;
             ItemStack working = current.copy();
-            List<ItemStack> outputs = new ArrayList<>();
-            NuclearSimulationService.ProcessStatus status = NuclearSimulationService.INSTANCE.processStack(
-                level,
-                blockEntity.getBlockPos(),
-                working,
-                1.0,
-                NuclearSimulationService.heatSink(blockEntity),
-                outputs::add
-            );
+            NuclearSimulationService.ProcessStatus status = processHandlerStack(level, blockEntity, handler, slot, working, environment);
             if (status == NuclearSimulationService.ProcessStatus.MUTATED) {
                 handler.setStackInSlot(slot, working);
-                for (ItemStack output : outputs) insertOrDrop(level, blockEntity.getBlockPos(), handler, output);
                 blockEntity.setChanged();
                 return true;
             }
@@ -180,19 +165,201 @@ public class NuclearSurfaceScanner {
 
     private static boolean hasRelevantStack(IItemHandler handler) {
         for (int slot = 0; slot < handler.getSlots(); slot++) {
-            if (NuclearSimulationService.INSTANCE.isNuclearRelevant(handler.getStackInSlot(slot))) return true;
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (NuclearSimulationService.INSTANCE.isNuclearRelevant(stack) || NuclearSimulationService.INSTANCE.hasCaptureProduct(stack)) return true;
         }
         return false;
     }
 
-    private static void insertOrDrop(ServerLevel level, BlockPos pos, IItemHandlerModifiable handler, ItemStack stack) {
+    private NuclearSimulationService.ProcessStatus processPlayerStack(ServerLevel level, ServerPlayer player, Inventory inventory, int slot, ItemStack stack, NuclearSimulationService.NuclearEnvironment environment) {
+        if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NUCLEAR_STACK_EVALUATIONS, 1)) {
+            return NuclearSimulationService.ProcessStatus.BUDGET_EXHAUSTED;
+        }
+        Optional<NuclearSimulationService.NuclearStackEvent> event = NuclearSimulationService.INSTANCE.evaluateStack(
+            stack,
+            PLAYER_PERIOD_TICKS / 20.0,
+            environment,
+            level.getRandom()
+        );
+        if (event.isEmpty()) return NuclearSimulationService.ProcessStatus.UNCHANGED;
+        NuclearSimulationService.NuclearStackEvent nuclearEvent = event.get();
+        if (nuclearEvent.type() == NuclearSimulationService.NuclearEventType.CAPTURE && !canPlaceAdjacent(inventory, slot, outputStack(nuclearEvent))) {
+            return NuclearSimulationService.ProcessStatus.UNCHANGED;
+        }
+        NuclearSimulationService.ProcessStatus status = NuclearSimulationService.INSTANCE.applyStackEvent(
+            level,
+            player.blockPosition(),
+            stack,
+            nuclearEvent,
+            null,
+            output -> placePlayerOutput(player, inventory, slot, nuclearEvent.type(), output)
+        );
+        inventory.setItem(slot, stack);
+        inventory.setChanged();
+        return status;
+    }
+
+    private NuclearSimulationService.ProcessStatus processHandlerStack(ServerLevel level, BlockEntity blockEntity, IItemHandlerModifiable handler, int slot, ItemStack working, NuclearSimulationService.NuclearEnvironment environment) {
+        if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NUCLEAR_STACK_EVALUATIONS, 1)) {
+            return NuclearSimulationService.ProcessStatus.BUDGET_EXHAUSTED;
+        }
+        Optional<NuclearSimulationService.NuclearStackEvent> event = NuclearSimulationService.INSTANCE.evaluateStack(
+            working,
+            1.0,
+            environment,
+            level.getRandom()
+        );
+        if (event.isEmpty()) return NuclearSimulationService.ProcessStatus.UNCHANGED;
+        NuclearSimulationService.NuclearStackEvent nuclearEvent = event.get();
+        if (nuclearEvent.type() == NuclearSimulationService.NuclearEventType.CAPTURE && !canPlaceAdjacent(handler, slot, outputStack(nuclearEvent))) {
+            return NuclearSimulationService.ProcessStatus.UNCHANGED;
+        }
+        return NuclearSimulationService.INSTANCE.applyStackEvent(
+            level,
+            blockEntity.getBlockPos(),
+            working,
+            nuclearEvent,
+            NuclearSimulationService.heatSink(blockEntity),
+            output -> placeHandlerOutput(level, blockEntity.getBlockPos(), handler, slot, nuclearEvent.type(), output)
+        );
+    }
+
+    private static NuclearSimulationService.NuclearEnvironment inventoryEnvironment(Inventory inventory, int slot, NuclearSimulationService.NuclearEnvironment baseEnvironment) {
+        double externalFlux = adjacentFlux(baseEnvironment, index -> inventory.getItem(index), inventory.getContainerSize(), slot);
+        return new NuclearSimulationService.NuclearEnvironment(baseEnvironment.moderation(), baseEnvironment.absorption(), externalFlux);
+    }
+
+    private static NuclearSimulationService.NuclearEnvironment inventoryEnvironment(IItemHandler handler, int slot, NuclearSimulationService.NuclearEnvironment baseEnvironment) {
+        double externalFlux = adjacentFlux(baseEnvironment, handler::getStackInSlot, handler.getSlots(), slot);
+        return new NuclearSimulationService.NuclearEnvironment(baseEnvironment.moderation(), baseEnvironment.absorption(), externalFlux);
+    }
+
+    private static double adjacentFlux(NuclearSimulationService.NuclearEnvironment baseEnvironment, java.util.function.IntFunction<ItemStack> stackGetter, int size, int slot) {
+        double flux = 0.0;
+        for (int candidate : adjacentSlots(slot, size)) {
+            flux += NuclearSimulationService.INSTANCE.intrinsicFlux(stackGetter.apply(candidate), baseEnvironment);
+        }
+        return flux;
+    }
+
+    private static List<Integer> adjacentSlots(int slot, int size) {
+        List<Integer> slots = new ArrayList<>(2);
+        if (slot > 0) slots.add(slot - 1);
+        if (slot + 1 < size) slots.add(slot + 1);
+        return slots;
+    }
+
+    private static boolean canPlaceAdjacent(Inventory inventory, int slot, ItemStack output) {
+        for (int candidate : adjacentSlots(slot, inventory.getContainerSize())) {
+            if (canInsertIntoStack(inventory.getItem(candidate), output)) return true;
+        }
+        return false;
+    }
+
+    private static boolean canPlaceAdjacent(IItemHandler handler, int slot, ItemStack output) {
+        for (int candidate : adjacentSlots(slot, handler.getSlots())) {
+            ItemStack remaining = handler.insertItem(candidate, output.copy(), true);
+            if (remaining.isEmpty()) return true;
+        }
+        return false;
+    }
+
+    private static void placePlayerOutput(ServerPlayer player, Inventory inventory, int sourceSlot, NuclearSimulationService.NuclearEventType type, ItemStack output) {
+        if (output.isEmpty()) return;
+        boolean inserted = switch (type) {
+            case CAPTURE -> insertAdjacent(inventory, sourceSlot, output);
+            case FISSION -> insertRandom(inventory, output, player.getRandom());
+            case DECAY -> inventory.add(output);
+        };
+        if (!inserted && !output.isEmpty()) player.drop(output, false);
+    }
+
+    private static void placeHandlerOutput(ServerLevel level, BlockPos pos, IItemHandlerModifiable handler, int sourceSlot, NuclearSimulationService.NuclearEventType type, ItemStack output) {
+        if (output.isEmpty()) return;
+        boolean inserted = switch (type) {
+            case CAPTURE -> insertAdjacent(handler, sourceSlot, output);
+            case FISSION -> insertRandom(handler, output, level.getRandom());
+            case DECAY -> insert(handler, output);
+        };
+        if (!inserted && !output.isEmpty()) {
+            Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, output);
+        }
+    }
+
+    private static boolean insertAdjacent(Inventory inventory, int sourceSlot, ItemStack output) {
+        for (int candidate : adjacentSlots(sourceSlot, inventory.getContainerSize())) {
+            if (insertIntoInventorySlot(inventory, candidate, output)) return true;
+        }
+        return false;
+    }
+
+    private static boolean insertAdjacent(IItemHandler handler, int sourceSlot, ItemStack output) {
+        for (int candidate : adjacentSlots(sourceSlot, handler.getSlots())) {
+            ItemStack remaining = handler.insertItem(candidate, output, false);
+            if (remaining.isEmpty()) return true;
+            output.setCount(remaining.getCount());
+        }
+        return false;
+    }
+
+    private static boolean insertRandom(Inventory inventory, ItemStack output, net.minecraft.util.RandomSource random) {
+        List<Integer> slots = shuffledSlots(inventory.getContainerSize(), random);
+        for (int slot : slots) {
+            if (insertIntoInventorySlot(inventory, slot, output)) return true;
+        }
+        return false;
+    }
+
+    private static boolean insertRandom(IItemHandler handler, ItemStack output, net.minecraft.util.RandomSource random) {
+        List<Integer> slots = shuffledSlots(handler.getSlots(), random);
+        for (int slot : slots) {
+            ItemStack remaining = handler.insertItem(slot, output, false);
+            if (remaining.isEmpty()) return true;
+            output.setCount(remaining.getCount());
+        }
+        return false;
+    }
+
+    private static List<Integer> shuffledSlots(int size, net.minecraft.util.RandomSource random) {
+        List<Integer> slots = new ArrayList<>(size);
+        for (int slot = 0; slot < size; slot++) slots.add(slot);
+        Collections.shuffle(slots, new java.util.Random(random.nextLong()));
+        return slots;
+    }
+
+    private static boolean insert(IItemHandlerModifiable handler, ItemStack stack) {
         ItemStack remaining = stack;
         for (int slot = 0; slot < handler.getSlots() && !remaining.isEmpty(); slot++) {
             remaining = handler.insertItem(slot, remaining, false);
         }
-        if (!remaining.isEmpty()) {
-            Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, remaining);
+        stack.setCount(remaining.getCount());
+        return remaining.isEmpty();
+    }
+
+    private static boolean insertIntoInventorySlot(Inventory inventory, int slot, ItemStack output) {
+        ItemStack target = inventory.getItem(slot);
+        if (!canInsertIntoStack(target, output)) return false;
+        if (target.isEmpty()) {
+            inventory.setItem(slot, output.copy());
+            output.setCount(0);
+            return true;
         }
+        int space = Math.min(target.getMaxStackSize(), inventory.getMaxStackSize()) - target.getCount();
+        int moved = Math.min(space, output.getCount());
+        if (moved <= 0) return false;
+        target.grow(moved);
+        output.shrink(moved);
+        return output.isEmpty();
+    }
+
+    private static boolean canInsertIntoStack(ItemStack target, ItemStack output) {
+        if (target.isEmpty()) return true;
+        return ItemStack.isSameItemSameTags(target, output)
+            && target.getCount() < Math.min(target.getMaxStackSize(), output.getMaxStackSize());
+    }
+
+    private static ItemStack outputStack(NuclearSimulationService.NuclearStackEvent event) {
+        return new ItemStack(event.outputItem(), event.outputCount());
     }
 
     private static List<ChunkPos> candidateChunks(ServerLevel level) {
