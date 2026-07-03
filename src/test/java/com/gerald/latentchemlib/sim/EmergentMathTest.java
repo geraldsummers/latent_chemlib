@@ -3,6 +3,7 @@ package com.gerald.latentchemlib.sim;
 import com.gerald.latentchemlib.data.ChemicalTraits;
 import com.gerald.latentchemlib.data.NumericCurve;
 import com.gerald.latentchemlib.data.PresetCurve;
+import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -64,8 +65,19 @@ class EmergentMathTest {
 
     @Test
     void updateCadenceDistinguishesQuietAndUrgentStates() {
-        assertEquals(20, EmergentMath.updateCadence(new ChemicalState("chemlib:neon", 1.0, 1.0, 293.0, 0.0, 0.0)));
+        assertEquals(10, EmergentMath.updateCadence(new ChemicalState("chemlib:neon", 1.0, 1.0, 293.0, 0.0, 0.0)));
         assertEquals(5, EmergentMath.updateCadence(new ChemicalState("chemlib:neon", 1.0, 1.0, 6_000.0, 1.0, 20_000.0)));
+    }
+
+    @Test
+    void directionalDiffusionFavorsLateralSpreadOverVerticalColumns() {
+        ChemicalState warmGas = new ChemicalState("chemlib:hydrogen", 500.0, 4.0, 600.0, 0.0, 120.0);
+        double horizontal = EmergentMath.directionalDiffusionWeight(warmGas, Direction.NORTH, 10.0);
+        double upward = EmergentMath.directionalDiffusionWeight(warmGas, Direction.UP, 10.0);
+        double downward = EmergentMath.directionalDiffusionWeight(warmGas, Direction.DOWN, 10.0);
+
+        assertTrue(horizontal > upward);
+        assertTrue(upward > downward);
     }
 
     @Test

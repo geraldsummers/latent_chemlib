@@ -1,6 +1,7 @@
 package com.gerald.latentchemlib.sim;
 
 import com.gerald.latentchemlib.data.ChemicalTraits;
+import net.minecraft.core.Direction;
 
 public final class EmergentMath {
     private EmergentMath() {}
@@ -15,8 +16,8 @@ public final class EmergentMath {
     }
 
     public static double diffusionMass(ChemicalState state, ChemicalTraits traits) {
-        double mobility = traits.volatility() * (1.0 + state.temperature() / 1_200.0) / Math.max(0.1, traits.cohesion());
-        return Math.max(0.0, state.mass() * Math.min(0.35, mobility * 0.04));
+        double mobility = traits.volatility() * (1.0 + state.temperature() / 900.0) / Math.max(0.08, traits.cohesion() * 0.7);
+        return Math.max(0.0, state.mass() * Math.min(0.60, mobility * 0.12));
     }
 
     public static double heatFlux(ChemicalState state, ChemicalTraits traits) {
@@ -40,7 +41,18 @@ public final class EmergentMath {
 
     public static int updateCadence(ChemicalState state) {
         double urgency = state.energy() / 10_000.0 + state.temperature() / 3_000.0 + state.charge();
-        return urgency > 2.0 ? 5 : 20;
+        return urgency > 2.0 ? 5 : 10;
+    }
+
+    public static double directionalDiffusionWeight(ChemicalState state, Direction direction, double pressure) {
+        if (pressure <= 0.0) return 0.0;
+        double thermalLift = Math.max(0.0, Math.min(0.35, (state.temperature() - 293.0) / 1_800.0));
+        double directionBias = switch (direction) {
+            case UP -> 0.90 + thermalLift;
+            case DOWN -> Math.max(0.20, 0.45 - thermalLift * 0.5);
+            default -> 1.35;
+        };
+        return pressure * directionBias;
     }
 
     public static boolean fusionIntercept(ChemicalState first, ChemicalState second, ChemicalTraits traits, int productAtomicNumber, double confinement) {

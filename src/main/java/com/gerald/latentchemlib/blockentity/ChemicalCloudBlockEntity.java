@@ -21,6 +21,10 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class ChemicalCloudBlockEntity extends BlockEntity {
     private ChemicalState state = ChemicalState.empty();
     private int age;
@@ -131,8 +135,11 @@ public class ChemicalCloudBlockEntity extends BlockEntity {
     private void diffuse(ServerLevel level, ChemicalTraits traits) {
         double movable = EmergentMath.diffusionMass(state, traits);
         if (movable <= 0.0) return;
-        for (Direction direction : Direction.values()) {
-            if (movable <= 0.0 || !SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NEIGHBOR_OPS, 1)) return;
+        List<DiffusionTarget> candidates = new ArrayList<>(Direction.values().length);
+        List<Direction> directions = new ArrayList<>(List.of(Direction.values()));
+        Collections.shuffle(directions, new java.util.Random(level.getRandom().nextLong()));
+        for (Direction direction : directions) {
+            if (!SimulationScheduler.INSTANCE.trySpend(level, SimulationBudget.NEIGHBOR_OPS, 1)) return;
             BlockPos target = worldPosition.relative(direction);
             if (!level.isInWorldBounds(target)) continue;
             BlockState targetState = level.getBlockState(target);
@@ -140,15 +147,25 @@ public class ChemicalCloudBlockEntity extends BlockEntity {
             double targetDensity = targetEntity == null ? 0.0 : targetEntity.state.density();
             double pressure = EmergentMath.pressureGradient(state, targetDensity, traits);
             if (pressure <= 0.0) continue;
-            if (targetEntity == null) {
-                if (!targetState.isAir() && !targetState.canBeReplaced()) continue;
-                level.setBlock(target, LatentChemlibMod.CHEMICAL_CLOUD.get().defaultBlockState(), 3);
-                targetEntity = level.getBlockEntity(target) instanceof ChemicalCloudBlockEntity cloud ? cloud : null;
-            }
+            double weight = EmergentMath.directionalDiffusionWeight(state, direction, pressure);
+            if (weight <= 0.0) continue;
+            candidates.add(new DiffusionTarget(target, targetState, targetEntity, pressure, weight));
+        }
+        if (candidates.isEmpty()) return;
+
+        double totalWeight = candidates.stream().mapToDouble(DiffusionTarget::weight).sum();
+        if (totalWeight <= 0.0) return;
+
+        double remaining = movable;
+        for (int i = 0; i < candidates.size() && remaining > 0.0; i++) {
+            DiffusionTarget candidate = candidates.get(i);
+            ChemicalCloudBlockEntity targetEntity = candidate.resolve(level);
             if (targetEntity == null) continue;
-            double moved = Math.min(movable, pressure);
+            double share = i == candidates.size() - 1 ? remaining : movable * (candidate.weight() / totalWeight);
+            double moved = Math.min(remaining, Math.min(candidate.pressure(), share));
+            if (moved <= 0.0) continue;
             targetEntity.seed(extractMass(moved));
-            movable -= moved;
+            remaining -= moved;
         }
     }
 
@@ -166,6 +183,21 @@ public class ChemicalCloudBlockEntity extends BlockEntity {
                 state = state.withEnergy(Math.max(0.0, state.energy() - resistance * 140.0));
                 return;
             }
+        }
+    }
+
+    private record DiffusionTarget(
+        BlockPos target,
+        BlockState targetState,
+        ChemicalCloudBlockEntity targetEntity,
+        double pressure,
+        double weight
+    ) {
+        private ChemicalCloudBlockEntity resolve(ServerLevel level) {
+            if (targetEntity != null) return targetEntity;
+            if (!targetState.isAir() && !targetState.canBeReplaced()) return null;
+            level.setBlock(target, LatentChemlibMod.CHEMICAL_CLOUD.get().defaultBlockState(), 3);
+            return level.getBlockEntity(target) instanceof ChemicalCloudBlockEntity cloud ? cloud : null;
         }
     }
 }
