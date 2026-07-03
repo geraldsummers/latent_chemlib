@@ -44,7 +44,7 @@ public record ChemicalState(
         return new ChemicalState(
             chemicalId,
             combinedMass,
-            Math.max(density, ((density * mass) + (other.density * other.mass)) / combinedMass),
+            density + other.density,
             ((temperature * mass) + (other.temperature * other.mass)) / combinedMass,
             ((charge * mass) + (other.charge * other.mass)) / combinedMass,
             energy + other.energy
@@ -54,7 +54,7 @@ public record ChemicalState(
     public ChemicalState withMass(double nextMass) {
         double bounded = Math.max(0.0, nextMass);
         double ratio = mass <= 0.0 ? 0.0 : bounded / mass;
-        return new ChemicalState(chemicalId, bounded, bounded <= 0.0 ? 0.0 : density, temperature, charge, energy * ratio);
+        return new ChemicalState(chemicalId, bounded, density * ratio, temperature, charge, energy * ratio);
     }
 
     public ChemicalState withEnergy(double nextEnergy) {

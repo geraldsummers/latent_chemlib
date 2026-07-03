@@ -17,8 +17,16 @@ import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class GasEscapeHandler {
     public static final GasEscapeHandler INSTANCE = new GasEscapeHandler();
+    private static final double ESCAPED_MASS_PER_ITEM = 16.0;
+    private static final double ESCAPED_DENSITY_PER_ITEM = 0.18;
+    private static final double ESCAPED_MIN_DENSITY = 0.03;
+    private static final double ESCAPED_ENERGY_PER_ITEM = 6.0;
+    private static final int MAX_SPAWN_CELLS = 6;
 
     @SubscribeEvent
     public void onEntityJoin(EntityJoinLevelEvent event) {
@@ -45,18 +53,23 @@ public class GasEscapeHandler {
         if (id == null) return false;
         String chemicalId = id.toString();
         ChemicalTraits traits = LatentDataManager.INSTANCE.traits(chemicalId);
-        ChemicalState state = new ChemicalState(
-            chemicalId,
-            stack.getCount() * 125.0,
-            Math.max(0.05, stack.getCount() * traits.volatility()),
-            293.0,
-            0.0,
-            stack.getCount() * 40.0
-        );
+        ChemicalState state = escapedState(chemicalId, stack.getCount(), traits);
         if (EmergentMath.escapePressure(state, traits, 0.0) <= 0.0) return false;
-        spawnCloud(level, origin, state);
+        if (!spawnCloud(level, origin, state)) return false;
         stack.setCount(0);
         return true;
+    }
+
+    static ChemicalState escapedState(String chemicalId, int count, ChemicalTraits traits) {
+        int stackCount = Math.max(0, count);
+        return new ChemicalState(
+            chemicalId,
+            stackCount * ESCAPED_MASS_PER_ITEM,
+            Math.max(ESCAPED_MIN_DENSITY, stackCount * traits.volatility() * ESCAPED_DENSITY_PER_ITEM),
+            293.0,
+            0.0,
+            stackCount * ESCAPED_ENERGY_PER_ITEM
+        );
     }
 
     public static boolean canEscapeAsGas(Chemical chemical) {
@@ -64,19 +77,34 @@ public class GasEscapeHandler {
     }
 
     public static boolean spawnCloud(ServerLevel level, BlockPos origin, ChemicalState state) {
+        List<BlockPos> targets = new ArrayList<>();
         for (int radius = 0; radius <= 2; radius++) {
             for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-radius, -radius, -radius), origin.offset(radius, radius, radius))) {
                 if (!level.isInWorldBounds(pos)) continue;
                 if (!level.getBlockState(pos).isAir() && !level.getBlockState(pos).canBeReplaced()) continue;
-                if (!(level.getBlockEntity(pos) instanceof ChemicalCloudBlockEntity)) {
-                    level.setBlock(pos, LatentChemlibMod.CHEMICAL_CLOUD.get().defaultBlockState(), 3);
-                }
-                if (level.getBlockEntity(pos) instanceof ChemicalCloudBlockEntity cloud) {
-                    cloud.seed(state);
-                    return true;
-                }
+                targets.add(pos.immutable());
+                if (targets.size() >= MAX_SPAWN_CELLS) return seedClouds(level, targets, state);
             }
         }
-        return false;
+        return seedClouds(level, targets, state);
+    }
+
+    private static boolean seedClouds(ServerLevel level, List<BlockPos> targets, ChemicalState state) {
+        if (targets.isEmpty() || state.mass() <= 0.0) return false;
+        int cells = Math.min(targets.size(), Math.max(1, (int) Math.ceil(state.mass() / 24.0)));
+        double totalMass = state.mass();
+        double remaining = totalMass;
+        for (int i = 0; i < cells; i++) {
+            BlockPos pos = targets.get(i);
+            if (!(level.getBlockEntity(pos) instanceof ChemicalCloudBlockEntity)) {
+                level.setBlock(pos, LatentChemlibMod.CHEMICAL_CLOUD.get().defaultBlockState(), 3);
+            }
+            if (!(level.getBlockEntity(pos) instanceof ChemicalCloudBlockEntity cloud)) continue;
+            double share = i == cells - 1 ? remaining : totalMass / cells;
+            ChemicalState slice = state.withMass(share);
+            cloud.seed(slice);
+            remaining -= share;
+        }
+        return remaining < totalMass;
     }
 }

@@ -45,7 +45,7 @@ class ChemicalStateTest {
         ChemicalState merged = hydrogen.merge(helium);
         assertEquals("chemlib:hydrogen", merged.chemicalId());
         assertEquals(400.0, merged.mass());
-        assertEquals(4.0, merged.density());
+        assertEquals(5.0, merged.density());
         assertEquals(700.0, merged.temperature());
         assertEquals(0.5, merged.charge());
         assertEquals(140.0, merged.energy());
@@ -56,7 +56,7 @@ class ChemicalStateTest {
         ChemicalState state = new ChemicalState("chemlib:radon", 100.0, 4.0, 700.0, 1.0, 500.0);
         ChemicalState half = state.withMass(50.0);
         assertEquals(50.0, half.mass());
-        assertEquals(4.0, half.density());
+        assertEquals(2.0, half.density());
         assertEquals(250.0, half.energy());
 
         ChemicalState empty = state.withMass(-1.0);
@@ -67,6 +67,19 @@ class ChemicalStateTest {
         ChemicalState fromEmpty = ChemicalState.empty().withMass(10.0);
         assertEquals(10.0, fromEmpty.mass());
         assertEquals(0.0, fromEmpty.energy());
+    }
+
+    @Test
+    void splitAndRecombinePreservesOriginalConcentration() {
+        ChemicalState state = new ChemicalState("chemlib:chlorine", 120.0, 6.0, 300.0, 0.2, 240.0);
+        ChemicalState firstHalf = state.withMass(60.0);
+        ChemicalState secondHalf = state.withMass(60.0);
+        ChemicalState recombined = firstHalf.merge(secondHalf);
+
+        assertEquals(3.0, firstHalf.density());
+        assertEquals(120.0, recombined.mass());
+        assertEquals(6.0, recombined.density());
+        assertEquals(240.0, recombined.energy());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.gerald.latentchemlib.sim;
 
+import com.gerald.latentchemlib.data.ChemicalTraits;
 import com.smashingmods.chemlib.api.Chemical;
 import com.smashingmods.chemlib.api.MatterState;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,6 +21,16 @@ class GasEscapeHandlerTest {
         assertFalse(GasEscapeHandler.canEscapeAsGas(new FakeChemical(MatterState.LIQUID)));
         assertFalse(GasEscapeHandler.canEscapeAsGas(new FakeChemical(MatterState.SOLID)));
         assertFalse(GasEscapeHandler.canEscapeAsGas(null));
+    }
+
+    @Test
+    void escapedStateIsFarLessDenseThanOldWholeStackBlob() {
+        ChemicalTraits traits = ChemicalTraits.fallback();
+        ChemicalState escaped = GasEscapeHandler.escapedState("chemlib:chlorine", 16, traits);
+
+        assertEquals(256.0, escaped.mass());
+        assertEquals(0.576, escaped.density(), 0.0001);
+        assertEquals(96.0, escaped.energy());
     }
 
     private record FakeChemical(MatterState state) implements Chemical {
