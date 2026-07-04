@@ -33,6 +33,37 @@ class GasEscapeHandlerTest {
         assertEquals(96.0, escaped.energy());
     }
 
+    @Test
+    void escapedStateClampsNegativeCountsToEmptyMassAndEnergy() {
+        ChemicalTraits traits = ChemicalTraits.fallback();
+        ChemicalState escaped = GasEscapeHandler.escapedState("chemlib:chlorine", -4, traits);
+
+        assertEquals(0.0, escaped.mass());
+        assertEquals(0.03, escaped.density(), 0.0001);
+        assertEquals(0.0, escaped.energy());
+    }
+
+    @Test
+    void escapedStateRespectsMinimumDensityForLowVolatilityChemicals() {
+        ChemicalTraits sluggish = new ChemicalTraits(
+            0.01,
+            0.7,
+            1.0,
+            0.12,
+            0.1,
+            0.0,
+            0.05,
+            0.05,
+            0.0,
+            ChemicalTraits.fallback().fusionBarrier()
+        );
+        ChemicalState escaped = GasEscapeHandler.escapedState("chemlib:xenon", 1, sluggish);
+
+        assertEquals(16.0, escaped.mass());
+        assertEquals(0.03, escaped.density(), 0.0001);
+        assertEquals(6.0, escaped.energy());
+    }
+
     private record FakeChemical(MatterState state) implements Chemical {
         @Override
         public Item asItem() {

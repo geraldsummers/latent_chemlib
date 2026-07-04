@@ -85,6 +85,53 @@ public final class LatentChemlibGameTests {
     }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", timeoutTicks = 80)
+    public static void gasCaptureRejectsAdjacentCloudsWithDifferentChemicals(GameTestHelper helper) {
+        BlockPos capturePos = new BlockPos(1, 1, 1);
+        BlockPos cloudPos = new BlockPos(2, 1, 1);
+        LatentMachineBlockEntity capture = placeMachine(helper, capturePos, LatentChemlibMod.GAS_CAPTURE.get());
+        capture.setStoredState(new ChemicalState("chemlib:helium", 200.0, 1.0, 300.0, 0.0, 20.0));
+        ChemicalCloudBlockEntity cloud = placeCloud(helper, cloudPos);
+        cloud.seed(new ChemicalState("chemlib:hydrogen", 800.0, 4.0, 600.0, 0.4, 120.0));
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(capture.storedState().chemicalId().equals("chemlib:helium"), "Gas capture should keep its existing chemical when nearby clouds differ");
+            helper.assertTrue(capture.storedState().mass() == 200.0, "Gas capture should not absorb incompatible clouds");
+            helper.assertTrue(cloud.chemicalState().chemicalId().equals("chemlib:hydrogen"), "Rejected clouds should keep their chemical identity");
+            helper.assertTrue(cloud.chemicalState().mass() == 800.0, "Rejected clouds should keep their mass");
+        });
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", timeoutTicks = 80)
+    public static void gasReleaseDoesNotOverwriteDifferentChemicalCloudAbove(GameTestHelper helper) {
+        BlockPos releasePos = new BlockPos(1, 1, 1);
+        BlockPos cloudPos = releasePos.above();
+        LatentMachineBlockEntity release = placeMachine(helper, releasePos, LatentChemlibMod.GAS_RELEASE.get());
+        ChemicalCloudBlockEntity cloud = placeCloud(helper, cloudPos);
+        release.setStoredState(new ChemicalState("chemlib:helium", 300.0, 2.0, 500.0, 0.1, 120.0));
+        cloud.seed(new ChemicalState("chemlib:hydrogen", 400.0, 4.0, 650.0, 0.3, 160.0));
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(cloud.chemicalState().chemicalId().equals("chemlib:hydrogen"), "Gas release should not overwrite an occupied cloud with a different chemical");
+            helper.assertTrue(cloud.chemicalState().mass() == 400.0, "Occupied mismatched clouds should keep their mass");
+            helper.assertTrue(release.storedState().chemicalId().equals("chemlib:helium"), "Gas release should keep stored gas when the destination cloud rejects it");
+            helper.assertTrue(release.storedState().mass() == 300.0, "Gas release should not consume storage when seeding fails");
+        });
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", timeoutTicks = 120)
+    public static void chemicalCloudDiffusesIntoOpenAirWithoutLosingMostMass(GameTestHelper helper) {
+        BlockPos origin = new BlockPos(2, 2, 2);
+        ChemicalCloudBlockEntity cloud = placeCloud(helper, origin);
+        cloud.seed(new ChemicalState("chemlib:hydrogen", 1_200.0, 8.0, 700.0, 0.2, 200.0));
+
+        helper.succeedWhen(() -> {
+            double totalMass = totalCloudMass(helper, new BlockPos(0, 0, 0), new BlockPos(4, 4, 4));
+            helper.assertTrue(totalMass > 1_000.0, "Diffusion should conserve most mass while clouds spread");
+            helper.assertTrue(totalCloudCount(helper, new BlockPos(0, 0, 0), new BlockPos(4, 4, 4)) > 1, "Diffusion should spread gas into neighboring cells");
+        });
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", timeoutTicks = 80)
     public static void reactionChamberAgitatesStoredMatter(GameTestHelper helper) {
         BlockPos chamberPos = new BlockPos(1, 1, 1);
         LatentMachineBlockEntity chamber = placeMachine(helper, chamberPos, LatentChemlibMod.GAS_REACTION_CHAMBER.get());
@@ -142,5 +189,15 @@ public final class LatentChemlibGameTests {
             }
         }
         return mass;
+    }
+
+    private static int totalCloudCount(GameTestHelper helper, BlockPos from, BlockPos to) {
+        int count = 0;
+        for (BlockPos pos : BlockPos.betweenClosed(from, to)) {
+            if (helper.getBlockEntity(pos) instanceof ChemicalCloudBlockEntity) {
+                count++;
+            }
+        }
+        return count;
     }
 }
