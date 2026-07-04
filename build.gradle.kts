@@ -252,17 +252,19 @@ tasks.jacocoTestCoverageVerification {
     }
 }
 
-tasks.register("verifyAll") {
-    group = "verification"
-    description = "Runs unit tests and, optionally, Forge GameTests with -PwithGameTests=true."
-    dependsOn("test")
-    dependsOn("jacocoTestCoverageVerification")
-
-    if ((findProperty("withGameTests") as String?)?.toBoolean() == true) {
-        dependsOn("runGameTestServer")
-    }
-}
-
 tasks.named("check") {
     dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+tasks.register("verifyFast") {
+    group = "verification"
+    description = "Runs the fast deterministic verification lane."
+    dependsOn(tasks.named("check"))
+}
+
+tasks.register("verifyFull") {
+    group = "verification"
+    description = "Runs the full verification lane, including headless Forge GameTests."
+    dependsOn(tasks.named("verifyFast"))
+    dependsOn(tasks.named("headlessGameTest"))
 }

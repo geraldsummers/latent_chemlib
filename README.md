@@ -45,11 +45,8 @@ ChemLib registry data.
 Common tasks:
 
 ```bash
-./gradlew test
-./gradlew jacocoTestCoverageVerification
-./gradlew runGameTestServer
-./gradlew build
-./gradlew verifyAll
+./gradlew verifyFast
+./gradlew verifyFull
 ./gradlew runClient
 ./gradlew runServer
 ```
@@ -59,12 +56,7 @@ configuration core. Forge event handlers and block entities are integration
 boundaries. The bundled Forge GameTests cover the current in-world block entity
 surfaces: cloud state, machine block entity creation, capture, release, and
 reaction chamber agitation.
-
-GameTests are wired through ForgeGradle and can be included with:
-
-```bash
-./gradlew verifyAll -PwithGameTests=true
-```
+`verifyFast` runs the JVM coverage gate. `verifyFull` adds the headless Forge GameTest pass without the old property-driven rerun path.
 
 ## Pack Configuration
 
