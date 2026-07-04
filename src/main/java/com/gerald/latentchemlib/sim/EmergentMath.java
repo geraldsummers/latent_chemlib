@@ -29,10 +29,14 @@ public final class EmergentMath {
     }
 
     public static ChemicalState coolAndSettle(ChemicalState state, ChemicalTraits traits) {
+        double densityDecay = Math.min(0.16, 0.08 + traits.volatility() * 0.05 + traits.conductivity() * 0.03);
+        double massDecay = Math.min(0.04, 0.01 + traits.volatility() * 0.015 + Math.max(0.0, state.temperature() - 293.0) / 20_000.0);
+        double nextMass = Math.max(0.0, state.mass() * (1.0 - massDecay));
+        double nextDensity = Math.max(0.0, state.density() * (1.0 - densityDecay));
         double nextEnergy = Math.max(0.0, state.energy() - 12.0 - traits.conductivity() * 8.0);
         double nextTemperature = Math.max(90.0, state.temperature() - traits.conductivity() * 3.0);
         double nextCharge = Math.max(0.0, state.charge() - 0.01 * (1.0 + traits.cohesion()));
-        return new ChemicalState(state.chemicalId(), state.mass(), state.density(), nextTemperature, nextCharge, nextEnergy);
+        return new ChemicalState(state.chemicalId(), nextMass, nextDensity, nextTemperature, nextCharge, nextEnergy);
     }
 
     public static boolean shouldDissipate(ChemicalState state, ChemicalTraits traits) {

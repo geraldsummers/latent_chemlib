@@ -54,6 +54,8 @@ class EmergentMathTest {
     void coolingSettlingAndDissipationAreBounded() {
         ChemicalState intense = new ChemicalState("chemlib:helium", 0.5, 0.001, 91.0, 0.001, 1.0);
         ChemicalState settled = EmergentMath.coolAndSettle(intense, traits);
+        assertTrue(settled.mass() < intense.mass());
+        assertTrue(settled.density() < intense.density());
         assertEquals(90.4, settled.temperature(), 0.0001);
         assertEquals(0.0, settled.charge());
         assertEquals(0.0, settled.energy());
@@ -61,6 +63,17 @@ class EmergentMathTest {
 
         ChemicalState dense = new ChemicalState("chemlib:helium", 10.0, 10.0, 600.0, 0.2, 100.0);
         assertFalse(EmergentMath.shouldDissipate(dense, traits));
+    }
+
+    @Test
+    void repeatedCoolingEventuallyDissipatesAStableCloud() {
+        ChemicalState state = new ChemicalState("chemlib:helium", 200.0, 2.0, 320.0, 0.0, 0.0);
+
+        for (int i = 0; i < 64 && !EmergentMath.shouldDissipate(state, traits); i++) {
+            state = EmergentMath.coolAndSettle(state, traits);
+        }
+
+        assertTrue(EmergentMath.shouldDissipate(state, traits));
     }
 
     @Test

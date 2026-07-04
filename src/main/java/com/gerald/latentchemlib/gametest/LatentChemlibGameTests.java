@@ -8,6 +8,7 @@ import com.gerald.latentchemlib.sim.ChemicalState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.item.ItemStack;
@@ -129,6 +130,28 @@ public final class LatentChemlibGameTests {
             helper.assertTrue(totalMass > 1_000.0, "Diffusion should conserve most mass while clouds spread");
             helper.assertTrue(totalCloudCount(helper, new BlockPos(0, 0, 0), new BlockPos(4, 4, 4)) > 1, "Diffusion should spread gas into neighboring cells");
         });
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", timeoutTicks = 320)
+    public static void chemicalCloudEventuallyDissipatesWhenBoxedIn(GameTestHelper helper) {
+        BlockPos origin = new BlockPos(2, 2, 2);
+        for (BlockPos neighbor : new BlockPos[] {
+            origin.north(),
+            origin.south(),
+            origin.east(),
+            origin.west(),
+            origin.above(),
+            origin.below()
+        }) {
+            helper.setBlock(neighbor, Blocks.STONE);
+        }
+
+        ChemicalCloudBlockEntity cloud = placeCloud(helper, origin);
+        cloud.seed(new ChemicalState("chemlib:helium", 200.0, 2.0, 320.0, 0.0, 0.0));
+
+        helper.succeedWhen(() ->
+            helper.assertTrue(helper.getBlockState(origin).isAir(), "A boxed-in cloud should eventually dissipate instead of persisting forever")
+        );
     }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", timeoutTicks = 80)
