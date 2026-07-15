@@ -94,11 +94,12 @@ public final class LatentChemlibGameTests {
         ChemicalCloudBlockEntity cloud = placeCloud(helper, cloudPos);
         cloud.seed(new ChemicalState("chemlib:hydrogen", 800.0, 4.0, 600.0, 0.4, 120.0));
 
-        helper.succeedWhen(() -> {
+        helper.runAfterDelay(21, () -> {
             helper.assertTrue(capture.storedState().chemicalId().equals("chemlib:helium"), "Gas capture should keep its existing chemical when nearby clouds differ");
             helper.assertTrue(capture.storedState().mass() == 200.0, "Gas capture should not absorb incompatible clouds");
             helper.assertTrue(cloud.chemicalState().chemicalId().equals("chemlib:hydrogen"), "Rejected clouds should keep their chemical identity");
             helper.assertTrue(cloud.chemicalState().mass() == 800.0, "Rejected clouds should keep their mass");
+            helper.succeed();
         });
     }
 
@@ -111,11 +112,12 @@ public final class LatentChemlibGameTests {
         release.setStoredState(new ChemicalState("chemlib:helium", 300.0, 2.0, 500.0, 0.1, 120.0));
         cloud.seed(new ChemicalState("chemlib:hydrogen", 400.0, 4.0, 650.0, 0.3, 160.0));
 
-        helper.succeedWhen(() -> {
+        helper.runAfterDelay(21, () -> {
             helper.assertTrue(cloud.chemicalState().chemicalId().equals("chemlib:hydrogen"), "Gas release should not overwrite an occupied cloud with a different chemical");
             helper.assertTrue(cloud.chemicalState().mass() == 400.0, "Occupied mismatched clouds should keep their mass");
             helper.assertTrue(release.storedState().chemicalId().equals("chemlib:helium"), "Gas release should keep stored gas when the destination cloud rejects it");
             helper.assertTrue(release.storedState().mass() == 300.0, "Gas release should not consume storage when seeding fails");
+            helper.succeed();
         });
     }
 
