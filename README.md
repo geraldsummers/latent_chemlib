@@ -79,3 +79,7 @@ without recompiling the mod.
 - The mod currently provides the simulation foundation and block/item registry.
   Pack-specific recipes, progression gates, and datapack tuning live in the
   consuming pack.
+
+## Community and support
+
+For modpack and mod discussion, playtest feedback, and bug reports, join the [Better Content Discord](https://discord.gg/EkRnZbzqS9).
